@@ -18,13 +18,14 @@ class GeminiApiTest {
     @Test
     fun testGenerateGeminiResponse() = runBlocking {
         val history = emptyList<ChatMessage>()
-        val prompt = "Respond exactly with the string 'HELLO_WORLD'"
+        val prompt = "Reply with exactly: GEMINI_AUTH_OK"
         
         try {
             val response = generateGeminiResponse(history, prompt)
-            assertTrue("Response must contain 'HELLO_WORLD' but was: $response", response.contains("HELLO_WORLD"))
+            println("Response: $response")
+            assertTrue("Response must contain 'GEMINI_AUTH_OK' but was: $response", response.contains("GEMINI_AUTH_OK"))
         } catch(e: Exception) {
-            println("Test Failed: ${e.message}")
+            e.printStackTrace()
             throw e
         }
     }

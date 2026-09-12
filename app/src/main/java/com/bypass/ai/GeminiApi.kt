@@ -4,7 +4,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import retrofit2.http.POST
 import retrofit2.http.Body
-import retrofit2.http.Query
+import retrofit2.http.Header
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import okhttp3.OkHttpClient
@@ -35,9 +35,9 @@ data class Candidate(
 )
 
 interface GeminiApiService {
-    @POST("v1beta/models/gemini-3.6-flash:generateContent")
+    @POST("v1beta/models/gemini-1.5-flash:generateContent")
     suspend fun generateContent(
-        @Query("key") apiKey: String,
+        @Header("x-goog-api-key") apiKey: String,
         @Body request: GenerateContentRequest
     ): GenerateContentResponse
 }
@@ -67,7 +67,7 @@ suspend fun generateGeminiResponse(
     history: List<ChatMessage>,
     prompt: String
 ): String = withContext(Dispatchers.IO) {
-    val apiKey = BuildConfig.GEMINI_API_KEY
+    val apiKey = BuildConfig.GEMINI_API_KEY.trim()
     if (apiKey.isBlank() || apiKey == "YOUR_GEMINI_API_KEY") {
         throw Exception("Invalid API key. Please configure GEMINI_API_KEY.")
     }
