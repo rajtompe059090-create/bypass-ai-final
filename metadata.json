@@ -1,0 +1,6 @@
+{
+  "name": "Bypass AI",
+  "description": "AI Developer Assistant",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

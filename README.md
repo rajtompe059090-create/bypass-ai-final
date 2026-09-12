@@ -1,11 +1,23 @@
-<div align="center">
+# Bypass AI
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+A complete Android AI Developer Assistant application built with Jetpack Compose.
 
-  <h1>Built with AI Studio</h2>
+## Features
+- AI Chat (Powered by Gemini)
+- Interactive workspace (File explorer, Terminal, Editor)
+- Clean room implementation
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## Building the project
+1. Clone the repository
+2. Copy `.env.example` to `.env` and optionally add your Gemini API key:
+   ```bash
+   cp .env.example .env
+   ```
+3. Run the standard debug build:
+   ```bash
+   ./gradlew assembleDebug
+   ```
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
-
-</div>
+## Requirements
+- Android Studio or JDK 17
+- Minimum SDK 24
