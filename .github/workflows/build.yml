@@ -24,7 +24,13 @@ jobs:
       run: chmod +x gradlew
 
     - name: Set up .env
-      run: cp .env.example .env
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      run: |
+        cp .env.example .env
+        if [ -n "$GEMINI_API_KEY" ]; then
+          sed -i "s/GEMINI_API_KEY=YOUR_GEMINI_API_KEY/GEMINI_API_KEY=$GEMINI_API_KEY/g" .env
+        fi
 
     - name: Build with Gradle
       run: ./gradlew assembleDebug
