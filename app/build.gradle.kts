@@ -39,6 +39,15 @@ android {
   }
 }
 
+// Ensure .env is populated with AI Studio environment variables if it doesn't exist
+val sysKey = System.getenv("GEMINI_API_KEY")
+if (sysKey != null && sysKey.isNotBlank()) {
+    val envFile = rootProject.file(".env")
+    if (!envFile.exists() || !envFile.readText().contains(sysKey)) {
+        envFile.writeText("GEMINI_API_KEY=$sysKey\n")
+    }
+}
+
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
 // to match the convention used in Web projects.
 secrets {
