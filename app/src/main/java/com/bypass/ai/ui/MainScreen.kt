@@ -26,7 +26,7 @@ import com.bypass.ai.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(rootNavController: NavHostController, fileManager: FileManager) {
+fun MainScreen(rootNavController: NavHostController, viewModel: com.bypass.ai.core.AgentViewModel) {
     val bottomNavController = rememberNavController()
     
     Scaffold(
@@ -185,17 +185,17 @@ fun MainScreen(rootNavController: NavHostController, fileManager: FileManager) {
             startDestination = "home",
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable("home") { HomeScreen(rootNavController, fileManager) }
-            composable("files") { FilesScreen(rootNavController, fileManager) }
+            composable("home") { HomeScreen(rootNavController, viewModel) }
+            composable("files") { FilesScreen(rootNavController, viewModel.fileManager) }
             composable("editor/{path}") { backStackEntry ->
                 val path = backStackEntry.arguments?.getString("path") ?: ""
-                EditorScreen(rootNavController, fileManager, path)
+                EditorScreen(rootNavController, viewModel.fileManager, path)
             }
             composable("editor/") {
-                EditorScreen(rootNavController, fileManager, "")
+                EditorScreen(rootNavController, viewModel.fileManager, "")
             }
-            composable("terminal") { TerminalScreen(rootNavController, fileManager) }
-            composable("preview") { PreviewScreen(rootNavController) }
+            composable("terminal") { TerminalScreen(rootNavController, viewModel.fileManager) }
+            composable("preview") { PreviewScreen(rootNavController, viewModel) }
             composable("dev") { DevScreen(rootNavController) }
         }
     }

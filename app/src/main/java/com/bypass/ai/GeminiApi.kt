@@ -1,6 +1,7 @@
 package com.bypass.ai
 
-import com.squareup.moshi.JsonClass
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import retrofit2.http.POST
 import retrofit2.http.Body
 import retrofit2.http.Query
@@ -11,29 +12,24 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-@JsonClass(generateAdapter = true)
 data class GenerateContentRequest(
     val contents: List<Content>,
     val systemInstruction: Content? = null
 )
 
-@JsonClass(generateAdapter = true)
 data class Content(
     val role: String? = null,
     val parts: List<Part>
 )
 
-@JsonClass(generateAdapter = true)
 data class Part(
     val text: String
 )
 
-@JsonClass(generateAdapter = true)
 data class GenerateContentResponse(
     val candidates: List<Candidate>? = null
 )
 
-@JsonClass(generateAdapter = true)
 data class Candidate(
     val content: Content? = null
 )
@@ -52,12 +48,16 @@ object RetrofitClient {
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
+        
+    private val moshi = Moshi.Builder()
+        .add(KotlinJsonAdapterFactory())
+        .build()
 
     val service: GeminiApiService by lazy {
         Retrofit.Builder()
             .baseUrl("https://generativelanguage.googleapis.com/")
             .client(okHttpClient)
-            .addConverterFactory(MoshiConverterFactory.create())
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
             .create(GeminiApiService::class.java)
     }
@@ -72,15 +72,6 @@ suspend fun generateGeminiResponse(
         throw Exception("Invalid API key. Please configure GEMINI_API_KEY.")
     }
     
-    val contents = history.filter { !it.isError && !it.isUser }.map {
-        Content(
-            role = "model",
-            parts = listOf(Part(text = it.text))
-        )
-    }.toMutableList()
-    
-    // add user messages separately, ensuring alternating sequence if required, 
-    // actually, let's map accurately:
     val allContents = history.filter { !it.isError }.map {
         Content(
             role = if (it.isUser) "user" else "model",
@@ -89,7 +80,7 @@ suspend fun generateGeminiResponse(
     }.toMutableList()
     
     allContents.add(Content(role = "user", parts = listOf(Part(text = prompt))))
-
+    
     val request = GenerateContentRequest(
         contents = allContents,
         systemInstruction = Content(
