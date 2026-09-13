@@ -30,9 +30,10 @@ import java.io.File
 import java.net.URLEncoder
 
 @Composable
-fun FilesScreen(navController: NavHostController, fileManager: FileManager) {
+fun FilesScreen(navController: NavHostController, viewModel: com.bypass.ai.core.AgentViewModel) {
+    val fileManager = viewModel.fileManager
     var currentDir by remember { mutableStateOf(fileManager.workspaceDir) }
-    val files = remember(currentDir) { fileManager.listFiles(currentDir) }
+    val files = remember(currentDir, viewModel.fileRefreshTrigger.value) { fileManager.listFiles(currentDir) }
 
     Column(modifier = Modifier.fillMaxSize().background(BypassDarkBackground)) {
         // Toolbar

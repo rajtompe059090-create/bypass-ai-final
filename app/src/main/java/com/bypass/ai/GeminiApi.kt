@@ -35,7 +35,7 @@ data class Candidate(
 )
 
 interface GeminiApiService {
-    @POST("v1beta/models/gemini-1.5-flash:generateContent")
+    @POST("v1beta/models/gemini-3.6-flash:generateContent")
     suspend fun generateContent(
         @Header("x-goog-api-key") apiKey: String,
         @Body request: GenerateContentRequest
@@ -72,20 +72,62 @@ suspend fun generateGeminiResponse(
         throw Exception("Invalid API key. Please configure GEMINI_API_KEY.")
     }
     
-    val allContents = history.filter { !it.isError }.map {
+    val allContents = history.map {
+        val role = if (it.isUser || it.isError) "user" else "model"
+        val text = if (it.isError) "System Error: ${it.text}\nPlease fix this." else it.text
         Content(
-            role = if (it.isUser) "user" else "model",
-            parts = listOf(Part(text = it.text))
+            role = role,
+            parts = listOf(Part(text = text))
         )
     }.toMutableList()
     
-    allContents.add(Content(role = "user", parts = listOf(Part(text = prompt))))
+    if (prompt.isNotBlank()) {
+        allContents.add(Content(role = "user", parts = listOf(Part(text = prompt))))
+    }
     
     val request = GenerateContentRequest(
         contents = allContents,
         systemInstruction = Content(
             role = "system",
-            parts = listOf(Part(text = "You are Bypass AI, an expert Android Developer Assistant. You can help with Android development, Kotlin, Java, Gradle, debugging, code generation, project architecture, terminal commands, and file operations. You can produce structured actions to automate tasks in the IDE. Format actions precisely like this:\n\n<action>\ntype=create_file\npath=app/src/main/java/com/bypass/ai/Example.kt\ncontent=\n// code here\n</action>\n\nSupported types: create_file, update_file, delete_file, run_command, read_file. Keep your answers concise, practical, and helpful. Do not expose API keys."))
+            parts = listOf(Part(text = """You are Bypass AI, an expert AI Coding Agent. You build, run, and preview complete applications (HTML/JS, Android, Python, Node, etc.).
+You must execute actions to fulfill the user's request. Do not just reply with code. Format actions in XML blocks:
+
+<action>
+type=CREATE_FILE
+path=index.html
+content=
+<!DOCTYPE html>
+<html>...</html>
+</action>
+
+<action>
+type=RUN_COMMAND
+command=npm install
+</action>
+
+<action>
+type=BUILD_PROJECT
+</action>
+
+<action>
+type=PREVIEW_PROJECT
+</action>
+
+Supported types: 
+- CREATE_FILE (requires path, content)
+- UPDATE_FILE (requires path, content)
+- DELETE_FILE (requires path)
+- CREATE_FOLDER (requires path)
+- READ_FILE (requires path)
+- LIST_FILES (requires path)
+- OPEN_FILE (requires path)
+- RUN_COMMAND (requires command)
+- BUILD_PROJECT
+- ANALYZE_ERROR
+- PREVIEW_PROJECT
+- SEARCH_PROJECT (requires command as query)
+
+Analyze the request, decide the stack (e.g. HTML/CSS/JS for basic web apps), create all necessary files, build if needed, and preview. Provide complete working code in the files.""".trimIndent()))
         )
     )
     

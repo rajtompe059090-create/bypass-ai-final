@@ -9,8 +9,7 @@ import java.io.InputStreamReader
 object TerminalRunner {
     suspend fun runCommand(command: String, workingDir: File): String = withContext(Dispatchers.IO) {
         try {
-            val parts = command.split(" ")
-            val process = ProcessBuilder(parts)
+            val process = ProcessBuilder("sh", "-c", command)
                 .directory(workingDir)
                 .redirectErrorStream(true)
                 .start()

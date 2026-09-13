@@ -36,13 +36,10 @@ import com.bypass.ai.ui.theme.BypassTextSecondary
 import kotlinx.coroutines.launch
 
 @Composable
-fun TerminalScreen(navController: NavHostController, fileManager: FileManager) {
+fun TerminalScreen(navController: NavHostController, viewModel: com.bypass.ai.core.AgentViewModel) {
     var command by remember { mutableStateOf("") }
-    val history = remember { mutableStateListOf<String>(
-        "[SYSTEM] Bypass IDE Root Subsystem Initialized",
-        "[WORKSPACE] ${fileManager.workspaceDir.absolutePath}",
-        "[PROJECT DIR] ${fileManager.workspaceDir.absolutePath}"
-    ) }
+    val history = viewModel.terminalHistory
+    val fileManager = viewModel.fileManager
     val coroutineScope = rememberCoroutineScope()
     val workingDir = fileManager.workspaceDir
 

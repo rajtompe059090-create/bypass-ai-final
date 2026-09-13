@@ -12,7 +12,7 @@ object ActionParser {
         val actions = mutableListOf<AiAction>()
         var textBody = response
         
-        val actionRegex = "(?s)<action>(.*?)</action>".toRegex()
+        val actionRegex = "(?si)<action>(.*?)</action>".toRegex()
         
         actionRegex.findAll(response).forEach { matchResult ->
             val actionBlock = matchResult.groupValues[1]
@@ -31,13 +31,14 @@ object ActionParser {
                     continue
                 }
                 
+                val lowerLine = line.lowercase()
                 when {
-                    line.startsWith("type=") -> type = line.substringAfter("type=").trim()
-                    line.startsWith("path=") -> path = line.substringAfter("path=").trim()
-                    line.startsWith("command=") -> command = line.substringAfter("command=").trim()
-                    line.startsWith("content=") -> {
+                    lowerLine.startsWith("type=") -> type = line.substringAfter("=").trim()
+                    lowerLine.startsWith("path=") -> path = line.substringAfter("=").trim()
+                    lowerLine.startsWith("command=") -> command = line.substringAfter("=").trim()
+                    lowerLine.startsWith("content=") -> {
                         readingContent = true
-                        val initialContent = line.substringAfter("content=")
+                        val initialContent = line.substringAfter("=")
                         if (initialContent.isNotEmpty()) {
                             contentBuilder.append(initialContent).append("\n")
                         }

@@ -186,7 +186,7 @@ fun MainScreen(rootNavController: NavHostController, viewModel: com.bypass.ai.co
             modifier = Modifier.padding(innerPadding)
         ) {
             composable("home") { HomeScreen(rootNavController, viewModel) }
-            composable("files") { FilesScreen(rootNavController, viewModel.fileManager) }
+            composable("files") { FilesScreen(rootNavController, viewModel) }
             composable("editor/{path}") { backStackEntry ->
                 val path = backStackEntry.arguments?.getString("path") ?: ""
                 EditorScreen(rootNavController, viewModel.fileManager, path)
@@ -194,7 +194,7 @@ fun MainScreen(rootNavController: NavHostController, viewModel: com.bypass.ai.co
             composable("editor/") {
                 EditorScreen(rootNavController, viewModel.fileManager, "")
             }
-            composable("terminal") { TerminalScreen(rootNavController, viewModel.fileManager) }
+            composable("terminal") { TerminalScreen(rootNavController, viewModel) }
             composable("preview") { PreviewScreen(rootNavController, viewModel) }
             composable("dev") { DevScreen(rootNavController) }
         }

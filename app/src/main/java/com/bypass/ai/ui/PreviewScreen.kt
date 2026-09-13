@@ -35,6 +35,12 @@ fun PreviewScreen(navController: NavHostController, viewModel: AgentViewModel) {
     var url by remember { mutableStateOf("http://127.0.0.1:8080/") }
     val logs = remember { mutableStateListOf<String>() }
 
+    LaunchedEffect(viewModel.isBuilding.value) {
+        if (!viewModel.isBuilding.value && viewModel.status.value == "SUCCESS") {
+            webView?.reload()
+        }
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(BypassDarkBackground)) {
         // Toolbar
         Row(
@@ -80,6 +86,7 @@ fun PreviewScreen(navController: NavHostController, viewModel: AgentViewModel) {
             AndroidView(
                 factory = { context ->
                     WebView(context).apply {
+                        setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         webViewClient = object : WebViewClient() {
@@ -104,6 +111,13 @@ fun PreviewScreen(navController: NavHostController, viewModel: AgentViewModel) {
                 },
                 modifier = Modifier.fillMaxSize()
             )
+            
+            DisposableEffect(Unit) {
+                onDispose {
+                    webView?.destroy()
+                    webView = null
+                }
+            }
         }
         
         HorizontalDivider(color = Color(0xFF1E293B))
