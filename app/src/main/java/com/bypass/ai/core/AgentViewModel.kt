@@ -9,7 +9,9 @@ import com.bypass.ai.ChatMessage
 import com.bypass.ai.ai.ActionParser
 import com.bypass.ai.ai.AiAction
 import com.bypass.ai.generateGeminiResponse
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import java.io.File
 
 class AgentViewModel(application: Application) : AndroidViewModel(application) {
@@ -17,15 +19,14 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     val messages = mutableStateListOf<ChatMessage>()
     var status = mutableStateOf("READY")
     var isBuilding = mutableStateOf(false)
-
     var fileRefreshTrigger = mutableStateOf(0)
-
     val currentProject = mutableStateOf<File?>(null)
-
     val terminalHistory = mutableStateListOf<String>()
+    
+    private var agentJob: Job? = null
+    var autoRepairCount = 0
 
     init {
-        // Create default workspace if none
         val project = fileManager.createProject("calculator-app")
         currentProject.value = project ?: File(fileManager.workspaceDir, "calculator-app")
         PreviewServer.start(currentProject.value!!)
@@ -40,36 +41,60 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         PreviewServer.stop()
+        agentJob?.cancel()
+    }
+    
+    fun cancelAgent() {
+        agentJob?.cancel()
+        isBuilding.value = false
+        status.value = "CANCELLED"
+        terminalHistory.add("[AGENT] Execution cancelled by user.")
+        messages.add(ChatMessage("Execution cancelled.", isUser = false, isError = true))
     }
 
-    fun executePrompt(prompt: String) {
+    fun executePrompt(prompt: String, isAutoRepair: Boolean = false) {
+        if (isBuilding.value) return // Prevent concurrency
+        
+        if (!isAutoRepair) {
+            autoRepairCount = 0
+        }
+        
         messages.add(ChatMessage(prompt, isUser = true))
         status.value = "PLANNING"
         isBuilding.value = true
-        terminalHistory.add("[AGENT] Planning...")
-
-        viewModelScope.launch {
+        terminalHistory.add("[AGENT] Planning project...")
+        
+        agentJob = viewModelScope.launch {
             var retries = 0
             var success = false
-
             while (retries < 3 && !success) {
                 try {
-                    val response = generateGeminiResponse(messages.toList(), "")
+                    status.value = if (retries == 0) "AI_REQUEST" else "REPAIRING"
+                    
+                    val response = generateGeminiResponse(
+                        history = messages.toList(),
+                        prompt = ""
+                    ) { statusUpdate ->
+                        // Only add Gemini specific updates if it's the network retries or key updates
+                        terminalHistory.add(statusUpdate)
+                    }
+                    
                     val (textBody, actions) = ActionParser.parseResponse(response)
                     
                     if (textBody.isNotBlank()) {
                         messages.add(ChatMessage(textBody, isUser = false))
                     }
-
+                    
                     status.value = "EXECUTING"
                     for (action in actions) {
                         executeAction(action)
                     }
                     
-                    // Add success message
                     messages.add(ChatMessage("Execution complete. Preview updated.", isUser = false))
                     status.value = "SUCCESS"
                     success = true
+                } catch (e: CancellationException) {
+                    throw e // Let it propagate for clean cancellation
                 } catch (e: Exception) {
                     retries++
                     val errorMsg = e.message ?: "Unknown error"
@@ -77,19 +102,24 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                     messages.add(ChatMessage("Error: $errorMsg", isUser = false, isError = true))
                     if (retries >= 3) {
                         status.value = "ERROR"
+                        terminalHistory.add("[AGENT] FAILED after 3 repair attempts")
+                    } else {
+                        terminalHistory.add("[AGENT] Attempting self-repair (Attempt $retries/3)")
                     }
                 }
             }
             isBuilding.value = false
-            if (status.value != "ERROR") {
-                // status.value = "READY"
-            }
         }
     }
     
     fun sendError(error: String) {
-         messages.add(ChatMessage("Runtime Error: $error\nPlease provide a fix.", isUser = true))
-         executePrompt("Runtime Error: $error\nPlease provide a fix.")
+        if (autoRepairCount < 3) {
+            autoRepairCount++
+            messages.add(ChatMessage("Runtime Error: $error\nPlease provide a fix.", isUser = true))
+            executePrompt("Runtime Error: $error\nPlease provide a fix.", isAutoRepair = true)
+        } else {
+            terminalHistory.add("[AGENT] FAILED: Maximum auto-repair attempts reached.")
+        }
     }
 
     private suspend fun executeAction(action: AiAction) {
@@ -100,7 +130,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                 if (action.path != null && action.content != null) {
                     val file = File(projectDir, action.path)
                     fileManager.writeFile(file, action.content)
-                    terminalHistory.add("[FILE] Created ${action.path}")
+                    terminalHistory.add("[FILE] ${if (type == "CREATE_FILE") "Creating" else "Updating"} ${action.path}")
                     fileRefreshTrigger.value++
                 }
             }
@@ -123,6 +153,9 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                     terminalHistory.add("[COMMAND] ${action.command}")
                     val output = TerminalRunner.runCommand(action.command, projectDir)
                     terminalHistory.add(output)
+                    if (output.contains("Error:", ignoreCase = true) || output.contains("FAILED", ignoreCase = true)) {
+                        throw Exception("Command failed: $output")
+                    }
                 }
             }
             "BUILD_PROJECT" -> {
@@ -150,20 +183,7 @@ class AgentViewModel(application: Application) : AndroidViewModel(application) {
                 if (action.path != null && action.content != null) {
                     val file = File(projectDir, action.path)
                     fileManager.writeFile(file, action.content)
-                    terminalHistory.add("[FILE] Created ${action.path}")
-                }
-            }
-            "delete_file" -> {
-                if (action.path != null) {
-                    fileManager.deleteFile(File(projectDir, action.path))
-                    terminalHistory.add("[FILE] Deleted ${action.path}")
-                }
-            }
-            "run_command" -> {
-                if (action.command != null) {
-                    terminalHistory.add("[COMMAND] ${action.command}")
-                    val output = TerminalRunner.runCommand(action.command, projectDir)
-                    terminalHistory.add(output)
+                    terminalHistory.add("[FILE] Created/Updated ${action.path}")
                 }
             }
         }

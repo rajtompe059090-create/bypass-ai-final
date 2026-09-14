@@ -11,6 +11,7 @@ import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 
 data class GenerateContentRequest(
     val contents: List<Content>,
@@ -44,9 +45,9 @@ interface GeminiApiService {
 
 object RetrofitClient {
     private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(120, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)
+        .writeTimeout(120, TimeUnit.SECONDS)
         .build()
         
     private val moshi = Moshi.Builder()
@@ -65,7 +66,8 @@ object RetrofitClient {
 
 suspend fun generateGeminiResponse(
     history: List<ChatMessage>,
-    prompt: String
+    prompt: String,
+    onStatusUpdate: ((String) -> Unit)? = null
 ): String = withContext(Dispatchers.IO) {
     val apiKey = BuildConfig.GEMINI_API_KEY.trim()
     if (apiKey.isBlank() || apiKey == "YOUR_GEMINI_API_KEY") {
@@ -89,26 +91,19 @@ suspend fun generateGeminiResponse(
         contents = allContents,
         systemInstruction = Content(
             role = "system",
-            parts = listOf(Part(text = """You are Bypass AI, an expert AI Coding Agent. You build, run, and preview complete applications (HTML/JS, Android, Python, Node, etc.).
-You must execute actions to fulfill the user's request. Do not just reply with code. Format actions in XML blocks:
-
+            parts = listOf(Part(text = """You are Bypass AI, an expert AI Coding Agent. You build, run, and preview complete applications (HTML/JS, Android, Python, Node, etc.).You must execute actions to fulfill the user's request. Do not just reply with code. Format actions in XML blocks:
 <action>
 type=CREATE_FILE
 path=index.html
-content=
-<!DOCTYPE html>
-<html>...</html>
+content=<!DOCTYPE html><html>...</html>
 </action>
-
 <action>
 type=RUN_COMMAND
 command=npm install
 </action>
-
 <action>
 type=BUILD_PROJECT
 </action>
-
 <action>
 type=PREVIEW_PROJECT
 </action>
@@ -131,10 +126,32 @@ Analyze the request, decide the stack (e.g. HTML/CSS/JS for basic web apps), cre
         )
     )
     
-    try {
-        val response = RetrofitClient.service.generateContent(apiKey, request)
-        response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "No response text received."
-    } catch (e: Exception) {
-        throw Exception("API Error: ${e.message}")
+    var lastError: Exception? = null
+    for (attempt in 1..3) {
+        try {
+            if (attempt == 1) {
+                onStatusUpdate?.invoke("Connecting to Gemini...")
+            } else {
+                onStatusUpdate?.invoke("[AI] Retry $attempt/3")
+                onStatusUpdate?.invoke("[AI] Retrying...")
+            }
+            onStatusUpdate?.invoke("Gemini thinking...")
+            
+            val response = RetrofitClient.service.generateContent(apiKey, request)
+            val text = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "No response text received."
+            onStatusUpdate?.invoke("Gemini response received")
+            return@withContext text
+        } catch (e: Exception) {
+            lastError = e
+            val errorMsg = e.message?.lowercase() ?: "unknown"
+            onStatusUpdate?.invoke("[AI] Request failed")
+            onStatusUpdate?.invoke("[AI] Error: $errorMsg")
+            if (attempt == 3) {
+                onStatusUpdate?.invoke("[AI] FAILED after 3 attempts")
+            } else {
+                delay((1000L * attempt * attempt)) // bounded exponential backoff
+            }
+        }
     }
+    throw Exception("API Error: timeout/network failure after 3 attempts. Last error: ${lastError?.message}")
 }

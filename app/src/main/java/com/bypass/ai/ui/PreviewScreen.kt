@@ -98,6 +98,12 @@ fun PreviewScreen(navController: NavHostController, viewModel: AgentViewModel) {
                             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                                 consoleMessage?.let {
                                     logs.add("${it.messageLevel()}: ${it.message()}")
+                                    if (it.messageLevel() == ConsoleMessage.MessageLevel.ERROR) {
+                                        viewModel.sendError("JavaScript Error in Preview: ${it.message()}")
+                                        navController.navigate("home") {
+                                            popUpTo("home") { inclusive = true }
+                                        }
+                                    }
                                 }
                                 return super.onConsoleMessage(consoleMessage)
                             }

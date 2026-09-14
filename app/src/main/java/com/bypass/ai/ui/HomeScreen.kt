@@ -215,14 +215,15 @@ fun HomeScreen(rootNavController: NavHostController, viewModel: AgentViewModel) 
                 )
                 
                 Spacer(modifier = Modifier.width(12.dp))
-                
-                Box(
+                                Box(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(if (text.isNotEmpty() && !viewModel.isBuilding.value) BypassCyan else Color(0xFF1E293B))
+                        .background(if (text.isNotEmpty() && !viewModel.isBuilding.value) BypassCyan else if (viewModel.isBuilding.value) Color(0xFFFF5252).copy(alpha=0.2f) else Color(0xFF1E293B))
                         .clickable {
-                            if (text.isNotEmpty() && !viewModel.isBuilding.value) {
+                            if (viewModel.isBuilding.value) {
+                                viewModel.cancelAgent()
+                            } else if (text.isNotEmpty()) {
                                 val prompt = text
                                 text = ""
                                 viewModel.executePrompt(prompt)
@@ -231,7 +232,7 @@ fun HomeScreen(rootNavController: NavHostController, viewModel: AgentViewModel) 
                     contentAlignment = Alignment.Center
                 ) {
                     if (viewModel.isBuilding.value) {
-                        CircularProgressIndicator(color = BypassTextSecondary, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.Stop, contentDescription = "Stop", tint = Color(0xFFFF5252), modifier = Modifier.size(20.dp))
                     } else {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = if (text.isNotEmpty()) Color.Black else BypassTextSecondary, modifier = Modifier.size(20.dp))
                     }
